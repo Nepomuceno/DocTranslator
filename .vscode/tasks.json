@@ -10,6 +10,16 @@
                 "${workspaceFolder}/src/api/DocTranslatorApi.csproj"
             ],
             "problemMatcher": "$msCompile"
+        },
+        {
+            "label": "watch",
+            "args": [
+                "run",
+                "${workspaceFolder}/src/api/DocTranslatorApi.csproj"
+            ],
+            "isBackground": true,
+            "command": "dotnet",
+            "type": "process"
         }
     ]
 }

@@ -37,6 +37,10 @@
       }
     },
     {
+      "name": "Launch"
+      ""
+    }
+    {
       "name": "Attach api",
       "type": "coreclr",
       "request": "attach",

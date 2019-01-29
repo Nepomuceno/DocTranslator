@@ -29,7 +29,6 @@ namespace DocTranslatorApi.Controllers
         public async Task<string> Upload(List<IFormFile> files)
         {
             long size = files.Sum(f => f.Length);
-            Console.WriteLine("Bla");
             // full path to file in temp location
             foreach (var formFile in files)
             {
@@ -37,27 +36,75 @@ namespace DocTranslatorApi.Controllers
                 {
                     if (formFile.FileName.EndsWith(".docx"))
                     {
-                        var filePath = await _translator.Translate(formFile);
+                        var filePath = await _translator.Translate(formFile, false, false);
                         //await UploadFileToStorage(stream, $"{formFile.FileName}");
                         using (FileStream streamfile = System.IO.File.Open(filePath, FileMode.Open))
                         {
-                            await UploadFileToStorage(streamfile, $"{DateTime.UtcNow.Ticks}.docx");
+                            var blob = await UploadFileToStorage(streamfile, "docs-en", $"{DateTime.UtcNow.Ticks}.docx");
+                            return blob.Uri.ToString();
                         }
-
                     }
                 }
             }
             return "OK";
         }
-        private static Task UploadFileToStorage(Stream fileStream, string fileName)
+        [HttpGet("")]
+        public async Task<List<DocDetails>> List()
         {
-            StorageCredentials storageCredentials = new StorageCredentials("ACCOUNT-NAME", "STORAGE-ACCOUNT-KEY");
+            List<DocDetails> items = new List<DocDetails>();
+            StorageCredentials storageCredentials = new StorageCredentials("ACCOUNT_NAME", "KEY");
             CloudStorageAccount storageAccount = new CloudStorageAccount(storageCredentials, true);
             CloudBlobClient blobClient = storageAccount.CreateCloudBlobClient();
             CloudBlobContainer container = blobClient.GetContainerReference("docs");
-            CloudBlockBlob blockBlob = container.GetBlockBlobReference(fileName);
-            return blockBlob.UploadFromStreamAsync(fileStream);
+            BlobContinuationToken token = new BlobContinuationToken();
+            for (
+            BlobResultSegment list = await container.ListBlobsSegmentedAsync(null, true, BlobListingDetails.Metadata, null, null, null, null);
+            token != null;
+            list = await container.ListBlobsSegmentedAsync(null, true, BlobListingDetails.Metadata, null, token, null, null))
+            {
+                token = list.ContinuationToken;
+                foreach (var item in list.Results)
+                {
+                    var itemb = item as CloudBlockBlob;
+                    if (itemb != null)
+                        items.Add(new DocDetails()
+                        {
+                            ContentMD5 = itemb.Properties.ContentMD5,
+                            Created = itemb.Properties.Created,
+                            LastModified = itemb.Properties.LastModified,
+                            Name = itemb.Name,
+                            Size = itemb.Properties.Length,
+                            Uri = itemb.Uri
+                        });
+                }
+            }
+            return items;
         }
+
+        [HttpPost("update/{filename}/{language}")]
+        [HttpPost("update")]
+        public async Task<string> Update(string filename, string language, IFormFile files)
+        {
+            using (var ms = new MemoryStream())
+            {
+                await files.CopyToAsync(ms);
+                await UploadFileToStorage(ms,$"docs-{language}",filename);
+            }
+            return "OK";
+        }
+
+        private static async Task<CloudBlockBlob> UploadFileToStorage(Stream fileStream, string containerName, string fileName)
+        {
+            StorageCredentials storageCredentials = new StorageCredentials("ACCOUNT_NAME", "KEY");
+            CloudStorageAccount storageAccount = new CloudStorageAccount(storageCredentials, true);
+            CloudBlobClient blobClient = storageAccount.CreateCloudBlobClient();
+            CloudBlobContainer container = blobClient.GetContainerReference(containerName);
+            await container.CreateIfNotExistsAsync();
+            CloudBlockBlob blockBlob = container.GetBlockBlobReference(fileName);
+            await blockBlob.UploadFromStreamAsync(fileStream);
+            return blockBlob;
+        }
+
     }
 
 }

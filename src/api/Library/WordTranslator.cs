@@ -20,8 +20,8 @@ public class WordTranslator
     }
     const string host = "https://api.cognitive.microsofttranslator.com";
     const string route = "/translate?api-version=3.0&to=en";
-    const string subscriptionKey = "COGNITIVE-KEY";
-    public async Task<string> Translate(IFormFile file)
+    const string subscriptionKey = "KEY_CONGNITIVE";
+    public async Task<string> Translate(IFormFile file, bool translateHeader, bool translateFooter)
     {
         var filePath = Path.GetTempFileName();
         Console.WriteLine($"[FILE] {filePath}");
